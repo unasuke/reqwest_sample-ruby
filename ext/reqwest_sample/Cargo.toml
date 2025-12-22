@@ -1,0 +1,13 @@
+[package]
+name = "reqwest_sample"
+version = "0.1.0"
+edition = "2021"
+authors = ["Yusuke Nakamura <yusuke1994525@gmail.com>"]
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+magnus = { version = "0.6.2" }
