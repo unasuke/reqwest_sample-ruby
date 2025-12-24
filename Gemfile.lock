@@ -19,6 +19,7 @@ GEM
     language_server-protocol (3.17.0.5)
     lint_roller (1.1.0)
     minitest (5.27.0)
+    nio4r (2.7.5)
     parallel (1.27.0)
     parser (3.3.10.0)
       ast (~> 2.4.1)
@@ -30,6 +31,8 @@ GEM
     psych (5.3.1)
       date
       stringio
+    puma (7.1.0)
+      nio4r (~> 2.0)
     racc (1.8.1)
     rainbow (3.1.1)
     rake (13.3.1)
@@ -89,6 +92,7 @@ PLATFORMS
 DEPENDENCIES
   irb
   minitest (~> 5.16)
+  puma
   rake (~> 13.0)
   rake-compiler
   reqwest_sample!
