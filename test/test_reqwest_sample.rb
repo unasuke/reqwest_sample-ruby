@@ -7,7 +7,19 @@ class TestReqwestSample < Minitest::Test
     refute_nil ::ReqwestSample::VERSION
   end
 
-  def test_it_does_something_useful
-    assert false
+  def test_client_get_returns_response_body
+    response = ReqwestSample::Client.get("#{TestServerHelper.base_url}/")
+    assert_equal "Hello from Puma!", response
+  end
+
+  def test_client_get_with_json_endpoint
+    response = ReqwestSample::Client.get("#{TestServerHelper.base_url}/json")
+    assert_equal '{"message":"ok"}', response
+  end
+
+  def test_client_get_with_connection_refused_raises_error
+    assert_raises(RuntimeError) do
+      ReqwestSample::Client.get("http://example.invalid/")
+    end
   end
 end
