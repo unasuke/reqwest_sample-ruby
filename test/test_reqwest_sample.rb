@@ -22,4 +22,15 @@ class TestReqwestSample < Minitest::Test
       ReqwestSample::Client.get("http://example.invalid/")
     end
   end
+
+  def test_client_new_returns_client_instance
+    client = ReqwestSample::Client.new
+    assert_instance_of ReqwestSample::Client, client
+  end
+
+  def test_multiple_clients_can_be_created
+    client1 = ReqwestSample::Client.new
+    client2 = ReqwestSample::Client.new
+    refute_same client1, client2
+  end
 end

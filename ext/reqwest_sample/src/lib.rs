@@ -19,6 +19,23 @@ fn client_get(url: String) -> Result<String, Error> {
     })
 }
 
+#[magnus::wrap(class = "ReqwestSample::Client")]
+struct Client {
+    inner: reqwest::Client,
+    runtime: tokio::runtime::Runtime,
+}
+
+impl Client {
+    fn new() -> Result<Self, Error> {
+        let runtime = tokio::runtime::Runtime::new()
+            .map_err(|e| Error::new(magnus::exception::runtime_error(), e.to_string()))?;
+
+        let inner = reqwest::Client::new();
+
+        Ok(Client { inner, runtime })
+    }
+}
+
 #[magnus::init]
 fn init(ruby: &Ruby) -> Result<(), Error> {
     let module = ruby.define_module("ReqwestSample")?;
@@ -26,5 +43,6 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
 
     let client = module.define_class("Client", ruby.class_object())?;
     client.define_singleton_method("get", function!(client_get, 1))?;
+    client.define_singleton_method("new", function!(Client::new, 0))?;
     Ok(())
 }
