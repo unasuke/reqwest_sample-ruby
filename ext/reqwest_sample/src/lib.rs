@@ -151,11 +151,13 @@ struct Response {
     status: u16,
     headers: HashMap<String, String>,
     body: String,
+    version: String,
 }
 
 impl Response {
     async fn from_reqwest(resp: reqwest::Response) -> Result<Self, Error> {
         let status = resp.status().as_u16();
+        let version = format!("{:?}", resp.version());
 
         let mut headers = HashMap::new();
         for (name, value) in resp.headers() {
@@ -173,6 +175,7 @@ impl Response {
             status,
             headers,
             body,
+            version,
         })
     }
 
@@ -192,6 +195,10 @@ impl Response {
     fn body(&self) -> String {
         self.body.clone()
     }
+
+    fn version(&self) -> String {
+        self.version.clone()
+    }
 }
 
 #[magnus::init]
@@ -203,6 +210,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     response.define_method("status", method!(Response::status, 0))?;
     response.define_method("headers", method!(Response::headers, 0))?;
     response.define_method("body", method!(Response::body, 0))?;
+    response.define_method("version", method!(Response::version, 0))?;
 
     let client = module.define_class("Client", ruby.class_object())?;
     client.define_singleton_method("get", function!(client_get, 1))?;
