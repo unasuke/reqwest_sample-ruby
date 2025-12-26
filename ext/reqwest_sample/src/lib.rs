@@ -1,8 +1,48 @@
+use hickory_proto::rr::{Name, RecordType};
+use hickory_resolver::name_server::TokioConnectionProvider;
+use hickory_resolver::Resolver;
 use magnus::{function, method, prelude::*, Error, RHash, Ruby};
 use std::collections::HashMap;
+use std::str::FromStr;
 
 fn hello(subject: String) -> String {
     format!("Hello from Rust, {subject}!")
+}
+
+fn extract_domain(url_str: &str) -> Option<String> {
+    url::Url::parse(url_str)
+        .ok()?
+        .host_str()
+        .map(|s| s.to_string())
+}
+
+async fn lookup_https_record(domain: &str) {
+    let resolver = match Resolver::builder(TokioConnectionProvider::default()) {
+        Ok(builder) => builder.build(),
+        Err(e) => {
+            eprintln!("[HTTPS Record] Failed to create resolver: {}", e);
+            return;
+        }
+    };
+
+    let name = match Name::from_str(&format!("{}.", domain)) {
+        Ok(n) => n,
+        Err(e) => {
+            eprintln!("[HTTPS Record] Invalid domain: {}", e);
+            return;
+        }
+    };
+
+    match resolver.lookup(name, RecordType::HTTPS).await {
+        Ok(response) => {
+            for record in response.iter() {
+                eprintln!("[HTTPS Record] {}: {:?}", domain, record);
+            }
+        }
+        Err(e) => {
+            eprintln!("[HTTPS Record] Lookup failed for {}: {}", domain, e);
+        }
+    }
 }
 
 // Simple binding for reqwest::get
@@ -38,6 +78,10 @@ impl Client {
 
     fn get(&self, url: String) -> Result<Response, Error> {
         self.runtime.block_on(async {
+            if let Some(domain) = extract_domain(&url) {
+                lookup_https_record(&domain).await;
+            }
+
             let resp = self
                 .inner
                 .get(&url)
