@@ -1,8 +1,11 @@
+use hickory_proto::rr::rdata::svcb::{SvcParamKey, SvcParamValue};
+use hickory_proto::rr::record_data::RData;
 use hickory_proto::rr::{Name, RecordType};
 use hickory_resolver::name_server::TokioConnectionProvider;
 use hickory_resolver::Resolver;
 use magnus::{function, method, prelude::*, Error, RHash, Ruby};
 use std::collections::HashMap;
+use std::error::Error as StdError;
 use std::str::FromStr;
 
 fn hello(subject: String) -> String {
@@ -16,32 +19,37 @@ fn extract_domain(url_str: &str) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-async fn lookup_https_record(domain: &str) {
+async fn lookup_https_record(domain: &str) -> Option<Vec<String>> {
     let resolver = match Resolver::builder(TokioConnectionProvider::default()) {
         Ok(builder) => builder.build(),
-        Err(e) => {
-            eprintln!("[HTTPS Record] Failed to create resolver: {}", e);
-            return;
+        Err(_) => {
+            return None;
         }
     };
 
     let name = match Name::from_str(&format!("{}.", domain)) {
         Ok(n) => n,
-        Err(e) => {
-            eprintln!("[HTTPS Record] Invalid domain: {}", e);
-            return;
+        Err(_) => {
+            return None;
         }
     };
 
     match resolver.lookup(name, RecordType::HTTPS).await {
         Ok(response) => {
             for record in response.iter() {
-                eprintln!("[HTTPS Record] {}: {:?}", domain, record);
+                if let RData::HTTPS(https_record) = record {
+                    for (key, value) in https_record.svc_params() {
+                        if let SvcParamKey::Alpn = key {
+                            if let SvcParamValue::Alpn(alpn) = value {
+                                return Some(alpn.0.clone());
+                            }
+                        }
+                    }
+                }
             }
+            None
         }
-        Err(e) => {
-            eprintln!("[HTTPS Record] Lookup failed for {}: {}", domain, e);
-        }
+        Err(_) => None,
     }
 }
 
@@ -53,7 +61,15 @@ fn client_get(url: String) -> Result<String, Error> {
     rt.block_on(async {
         reqwest::get(&url)
             .await
-            .map_err(|e| Error::new(magnus::exception::runtime_error(), e.to_string()))?
+            .map_err(|e| {
+                let mut msg = e.to_string();
+                let mut source: Option<&(dyn StdError + 'static)> = e.source();
+                while let Some(s) = source {
+                    msg.push_str(&format!("\n  caused by: {}", s));
+                    source = s.source();
+                }
+                Error::new(magnus::exception::runtime_error(), msg)
+            })?
             .text()
             .await
             .map_err(|e| Error::new(magnus::exception::runtime_error(), e.to_string()))
@@ -63,6 +79,7 @@ fn client_get(url: String) -> Result<String, Error> {
 #[magnus::wrap(class = "ReqwestSample::Client")]
 struct Client {
     inner: reqwest::Client,
+    h3_client: reqwest::Client,
     runtime: tokio::runtime::Runtime,
 }
 
@@ -71,23 +88,58 @@ impl Client {
         let runtime = tokio::runtime::Runtime::new()
             .map_err(|e| Error::new(magnus::exception::runtime_error(), e.to_string()))?;
 
-        let inner = reqwest::Client::new();
+        let (inner, h3_client) = runtime.block_on(async {
+            let inner = reqwest::Client::builder()
+                .build()
+                .map_err(|e| Error::new(magnus::exception::runtime_error(), e.to_string()))?;
 
-        Ok(Client { inner, runtime })
+            let h3_client = reqwest::Client::builder()
+                .use_rustls_tls()
+                .http3_prior_knowledge()
+                .build()
+                .map_err(|e| Error::new(magnus::exception::runtime_error(), e.to_string()))?;
+
+            Ok::<_, Error>((inner, h3_client))
+        })?;
+
+        Ok(Client { inner, h3_client, runtime })
     }
 
     fn get(&self, url: String) -> Result<Response, Error> {
         self.runtime.block_on(async {
-            if let Some(domain) = extract_domain(&url) {
-                lookup_https_record(&domain).await;
-            }
+            let supports_h3 = if let Some(domain) = extract_domain(&url) {
+                let alpn = lookup_https_record(&domain).await;
+                alpn.as_ref().map_or(false, |a| a.iter().any(|p| p == "h3"))
+            } else {
+                false
+            };
 
-            let resp = self
-                .inner
-                .get(&url)
-                .send()
-                .await
-                .map_err(|e| Error::new(magnus::exception::runtime_error(), e.to_string()))?;
+            let resp = if supports_h3 {
+                match self
+                    .h3_client
+                    .get(&url)
+                    .version(reqwest::Version::HTTP_3)
+                    .send()
+                    .await
+                {
+                    Ok(r) => r,
+                    Err(_) => {
+                        self.inner
+                            .get(&url)
+                            .send()
+                            .await
+                            .map_err(|e| {
+                                Error::new(magnus::exception::runtime_error(), e.to_string())
+                            })?
+                    }
+                }
+            } else {
+                self.inner
+                    .get(&url)
+                    .send()
+                    .await
+                    .map_err(|e| Error::new(magnus::exception::runtime_error(), e.to_string()))?
+            };
 
             Response::from_reqwest(resp).await
         })
