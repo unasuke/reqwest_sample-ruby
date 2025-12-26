@@ -34,15 +34,34 @@ class TestReqwestSample < Minitest::Test
     refute_same client1, client2
   end
 
-  def test_client_instance_get_returns_response_body
+  def test_client_instance_get_returns_response
     client = ReqwestSample::Client.new
     response = client.get("#{TestServerHelper.base_url}/")
-    assert_equal "Hello from Puma!", response
+    assert_instance_of ReqwestSample::Response, response
   end
 
-  def test_client_instance_get_with_json_endpoint
+  def test_response_status
+    client = ReqwestSample::Client.new
+    response = client.get("#{TestServerHelper.base_url}/")
+    assert_equal 200, response.status
+  end
+
+  def test_response_headers
+    client = ReqwestSample::Client.new
+    response = client.get("#{TestServerHelper.base_url}/")
+    assert_kind_of Hash, response.headers
+    assert response.headers.key?("content-type")
+  end
+
+  def test_response_body
+    client = ReqwestSample::Client.new
+    response = client.get("#{TestServerHelper.base_url}/")
+    assert_equal "Hello from Puma!", response.body
+  end
+
+  def test_response_body_with_json_endpoint
     client = ReqwestSample::Client.new
     response = client.get("#{TestServerHelper.base_url}/json")
-    assert_equal '{"message":"ok"}', response
+    assert_equal '{"message":"ok"}', response.body
   end
 end
