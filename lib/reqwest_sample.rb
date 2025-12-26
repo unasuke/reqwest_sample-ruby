@@ -8,7 +8,7 @@ module ReqwestSample
 
   class Response
     def inspect
-      body_preview = body.length > 50 ? "#{body[0, 50]}..." : body
+      body_preview = (body.length > 50) ? "#{body[0, 50]}..." : body
       "#<#{self.class} status=#{status} version=#{version.inspect} headers={#{headers.size} entries} body=#{body_preview.inspect}>"
     end
   end
