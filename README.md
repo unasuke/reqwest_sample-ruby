@@ -22,7 +22,29 @@ gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
 
 ## Usage
 
-TODO: Write usage instructions here
+```ruby
+require "reqwest_sample"
+
+# Create a client
+client = ReqwestSample::Client.new
+
+# Send a GET request
+response = client.get("https://example.com")
+
+# Access response data
+response.status   # => 200
+response.version  # => "HTTP/3.0" or "HTTP/2.0" or "HTTP/1.1"
+response.headers  # => {"content-type" => "text/html", ...}
+response.body     # => "<!DOCTYPE html>..."
+
+# Inspect the response
+response.inspect
+# => #<ReqwestSample::Response status=200 version="HTTP/2.0" headers={9 entries} body="<!DOCTYPE html>...">
+```
+
+### HTTP/3 Support
+
+This gem automatically uses HTTP/3 when the target server supports it. The protocol is determined by looking up the HTTPS DNS record (ALPN) before sending the request. If HTTP/3 fails, it falls back to HTTP/2 or HTTP/1.1.
 
 ## Development
 
