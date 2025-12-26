@@ -16,6 +16,10 @@ gem "reqwest_sample", github: "unasuke/reqwest_sample"
 ```ruby
 require "reqwest_sample"
 
+# Simple request without initialize client
+ReqwestSample::Client.get("https://example.com")
+# => "<!doctype html><html>...."
+
 # Create a client
 client = ReqwestSample::Client.new
 
