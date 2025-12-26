@@ -33,4 +33,16 @@ class TestReqwestSample < Minitest::Test
     client2 = ReqwestSample::Client.new
     refute_same client1, client2
   end
+
+  def test_client_instance_get_returns_response_body
+    client = ReqwestSample::Client.new
+    response = client.get("#{TestServerHelper.base_url}/")
+    assert_equal "Hello from Puma!", response
+  end
+
+  def test_client_instance_get_with_json_endpoint
+    client = ReqwestSample::Client.new
+    response = client.get("#{TestServerHelper.base_url}/json")
+    assert_equal '{"message":"ok"}', response
+  end
 end

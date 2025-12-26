@@ -1,4 +1,4 @@
-use magnus::{function, prelude::*, Error, Ruby};
+use magnus::{function, method, prelude::*, Error, Ruby};
 
 fn hello(subject: String) -> String {
     format!("Hello from Rust, {subject}!")
@@ -34,6 +34,19 @@ impl Client {
 
         Ok(Client { inner, runtime })
     }
+
+    fn get(&self, url: String) -> Result<String, Error> {
+        self.runtime.block_on(async {
+            self.inner
+                .get(&url)
+                .send()
+                .await
+                .map_err(|e| Error::new(magnus::exception::runtime_error(), e.to_string()))?
+                .text()
+                .await
+                .map_err(|e| Error::new(magnus::exception::runtime_error(), e.to_string()))
+        })
+    }
 }
 
 #[magnus::init]
@@ -44,5 +57,6 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     let client = module.define_class("Client", ruby.class_object())?;
     client.define_singleton_method("get", function!(client_get, 1))?;
     client.define_singleton_method("new", function!(Client::new, 0))?;
+    client.define_method("get", method!(Client::get, 1))?;
     Ok(())
 }
