@@ -1140,6 +1140,7 @@ dependencies = [
  "magnus",
  "reqwest",
  "tokio",
+ "url",
 ]
 
 [[package]]
