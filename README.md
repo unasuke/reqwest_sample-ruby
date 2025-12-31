@@ -2,6 +2,9 @@
 
 A sample binding gem of reqwest for Ruby.
 
+> [!CAUTION]
+> This gem is for experimental purposes only. Do not use it in production environments.
+
 ## Installation
 
 This gem is not released on RubyGems.org yet. Add Gemfile like below when you want to install this gem.
